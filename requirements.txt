@@ -1,0 +1,13 @@
+# Versions reproduced from the local `torch311` environment (Python 3.11.14).
+--extra-index-url https://download.pytorch.org/whl/cu126
+
+torch==2.7.1+cu126
+torchvision==0.22.1+cu126
+transformers==5.2.0
+accelerate==1.11.0
+numpy==2.4.2
+matplotlib==3.10.8
+Pillow==9.4.0
+tqdm==4.67.3
+qwen-vl-utils==0.0.14
+flash-attn==2.8.3
