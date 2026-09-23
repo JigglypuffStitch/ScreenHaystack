@@ -200,8 +200,6 @@ The relocation comparison is designed to separate a blind-zone boundary effect f
 
 ## Citation
 
-If you use this code, please cite the accompanying manuscript:
-
 ```bibtex
 @article{li2026screenhaystack,
   title   = {SCREENHAYSTACK: Finding Blind Zones in GUI Grounding},
