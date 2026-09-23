@@ -105,7 +105,7 @@ def load_existing_jsonl_progress(
                 record = json.loads(line)
             except json.JSONDecodeError:
                 malformed_lines += 1
-                print(f"⚠️ 忽略损坏的 JSONL 行: {jsonl_path}:{line_no}")
+                print(f"⚠️ Ignoring malformed JSONL line: {jsonl_path}:{line_no}")
                 continue
 
             valid_records.append(record)
@@ -124,9 +124,9 @@ def load_existing_jsonl_progress(
         with open(jsonl_path, "w", encoding="utf-8") as f:
             for record in valid_records:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        print(f"🧹 已清理 {malformed_lines} 行损坏 JSONL，保留 {len(valid_records)} 行有效记录")
+        print(f"🧹 Removed {malformed_lines} malformed JSONL lines; kept {len(valid_records)} valid records")
     elif malformed_lines:
-        print(f"⚠️ 忽略 {malformed_lines} 行损坏 JSONL: {jsonl_path}")
+        print(f"⚠️ Ignoring {malformed_lines} malformed JSONL lines: {jsonl_path}")
 
     return records_by_cell
 

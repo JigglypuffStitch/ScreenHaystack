@@ -70,18 +70,18 @@ Prepare:
 
 The probing scripts recognize three target types:
 
-- `gemini`: pure icon;
+- `star`: pure icon;
 - `circle_ok`: icon with a text label;
 - `clock`: icon containing embedded text.
 
 Pass the background and icon directories explicitly with `--bg_dir` and `--icon_dir`. The expected model-specific assets are:
 
-| Evaluator | `gemini` | `circle_ok` | `clock` |
+| Evaluator | `star` | `circle_ok` | `clock` |
 | --- | --- | --- | --- |
 | Qwen3-VL | `Today.png` | `API.png` | `clock_text_50x35.png` |
-| GTA1 | `gemini_icon_40.png` | `circle_ok_40.png` | `clock_text_60x40.png` |
-| UI-TARS | `gemini_icon_40.png` | `circle_ok_40.png` | `clock_text_40x60.png` |
-| UI-Venus | `gemini_icon_40.png` | `circle_ok_40.png` | `clock_text_60x40.png` |
+| GTA1 | `star_icon_40.png` | `circle_ok_40.png` | `clock_text_60x40.png` |
+| UI-TARS | `star_icon_40.png` | `circle_ok_40.png` | `clock_text_40x60.png` |
+| UI-Venus | `star_icon_40.png` | `circle_ok_40.png` | `clock_text_60x40.png` |
 
 Run the bundled generator to create the GTA1/UI-Venus 40-pixel probe assets under `find/icons/`:
 
@@ -117,7 +117,7 @@ Other examples:
 
 ```bash
 python run.py qwen3-32b circle_ok --bg_dir /path/to/backgrounds --icon_dir /path/to/icons
-python run.py gta1 gemini --bg_dir /path/to/backgrounds --icon_dir /path/to/icons
+python run.py gta1 star --bg_dir /path/to/backgrounds --icon_dir /path/to/icons
 python run.py uitars clock --bg_dir /path/to/backgrounds --icon_dir /path/to/icons
 python run.py uivenus clock --bg_dir /path/to/backgrounds --icon_dir /path/to/icons
 ```

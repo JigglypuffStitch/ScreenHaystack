@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent
 def main() -> int:
     parser = argparse.ArgumentParser(description="GUI blind-area evaluation; extra flags are passed to the selected evaluator.")
     parser.add_argument("model", choices=MODELS)
-    parser.add_argument("icon", choices=("clock", "gemini", "circle_ok"))
+    parser.add_argument("icon", choices=("clock", "star", "circle_ok"))
     parser.add_argument("--gpus", default=os.environ.get("CUDA_VISIBLE_DEVICES", "0"))
     parser.add_argument("--nproc", type=int, default=1, help="PyTorch worker count; each worker loads a full model")
     args, extra = parser.parse_known_args()

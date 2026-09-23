@@ -27,12 +27,12 @@ try:
     from qwen_vl_utils import process_vision_info
 except ImportError as exc:
     raise ImportError(
-        "缺少 qwen-vl-utils。请先运行：pip install qwen-vl-utils\n"
-        "官方建议依赖：pip install transformers==4.49.0 qwen-vl-utils"
+        "qwen-vl-utils is missing. Run: pip install qwen-vl-utils\n"
+        "Officially recommended dependencies: pip install transformers==4.49.0 qwen-vl-utils"
     ) from exc
 
 
-# ========== 默认配置 ==========
+# ========== Default configuration ==========
 DEFAULT_MODEL_PATH = "inclusionAI/UI-Venus-Ground-7B"
 DEFAULT_BG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'background')
 DEFAULT_ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons')
@@ -246,12 +246,12 @@ def write_done_metadata(
 
 def get_icons(icon_dir: str) -> Dict[str, Dict[str, Any]]:
     return {
-        "gemini": {
-            "path": os.path.join(icon_dir, "gemini_icon_40.png"),
+        "star": {
+            "path": os.path.join(icon_dir, "star_icon_40.png"),
             "width": 40,
             "height": 40,
             "prompt": "A red five-pointed star shape",
-            "name": "gemini",
+            "name": "star",
         },
         "circle_ok": {
             "path": os.path.join(icon_dir, "circle_ok_40.png"),
@@ -369,7 +369,7 @@ def load_model(
         )
     except Exception as exc:
         if attn_impl == "flash_attention_2":
-            rank0_print(rank, f"⚠️ flash_attention_2 加载失败，改用默认 attention。原始错误: {exc}")
+            rank0_print(rank, f"⚠️ Failed to load flash_attention_2; using the default attention implementation. Original error: {exc}")
             model_kwargs.pop("attn_implementation", None)
             model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                 model_path,
@@ -458,7 +458,7 @@ def run_batch(
 
         image_grid_thw = inputs.get("image_grid_thw", None)
         if image_grid_thw is None:
-            raise RuntimeError("processor 输出中缺少 image_grid_thw，无法把 UI-Venus 坐标转回原图。")
+            raise RuntimeError("The processor output lacks image_grid_thw, so UI-Venus coordinates cannot be mapped back to the original image.")
 
         processed_sizes = [
             (
@@ -552,7 +552,7 @@ def run_one_background(
     cols = math.ceil(width / icon_w)
     rows = height // icon_h
     if rows == 0:
-        rank0_print(rank, "⚠️ 背景高度小于图标高度，无法放置图标，跳过")
+        rank0_print(rank, "⚠️ The background is shorter than the icon; cannot place the icon, skipping")
         return
 
     grid_w = width / cols
@@ -561,8 +561,8 @@ def run_one_background(
     target_prompt = build_uivenus_prompt(icon_info["prompt"])
     pad_token_id = _get_pad_token_id(processor)
 
-    rank0_print(rank, f"\n🖼️ 背景 [{bg_index}]: {os.path.basename(bg_path)} ({width}x{height})")
-    rank0_print(rank, f"📐 网格划分: {cols} 列 x {rows} 行，图标尺寸 {icon_w}x{icon_h}px")
+    rank0_print(rank, f"\n🖼️ Background [{bg_index}]: {os.path.basename(bg_path)} ({width}x{height})")
+    rank0_print(rank, f"📐 Grid: {cols} columns x {rows} rows; icon size {icon_w}x{icon_h}px")
     rank0_print(rank, f"🚀 batch inference: batch_size={batch_size}, world_size={world_size}")
 
     total_cells = rows * cols
@@ -587,8 +587,8 @@ def run_one_background(
     if completed_cells:
         rank0_print(
             rank,
-            f"♻️ 自动续跑: rank{rank} 已恢复 {len(completed_cells)} 个 cell，"
-            f"剩余 {len(my_cell_indices)} 个 cell",
+            f"♻️ Automatic resume: rank {rank} restored {len(completed_cells)} cells; "
+            f"{len(my_cell_indices)} cells remain",
         )
 
     start_time = time.time()
@@ -702,7 +702,7 @@ def run_one_background(
     np.save(rank_paths["npy"], rank_matrix)
 
     elapsed = time.time() - start_time
-    rank0_print(rank, f"⏱️ 背景 {bg_index} rank0 shard 用时: {elapsed/60:.2f} min")
+    rank0_print(rank, f"⏱️ Background {bg_index} rank 0 shard time: {elapsed/60:.2f} min")
 
     dist_barrier(dist_enabled)
 
@@ -711,7 +711,7 @@ def run_one_background(
         for rr in range(world_size):
             p = get_rank_result_paths(output_dir, icon_info["name"], bg_index, rr)["npy"]
             if not os.path.exists(p):
-                print(f"⚠️ 缺少 rank 文件: {p}")
+                print(f"⚠️ Missing rank file: {p}")
                 continue
             m = np.load(p)
             mask = ~np.isnan(m)
@@ -719,12 +719,12 @@ def run_one_background(
 
         missing = int(np.isnan(merged).sum())
         if missing > 0:
-            print(f"⚠️ 合并后仍有 {missing} 个 cell 没有结果，将其置为 0")
+            print(f"⚠️ {missing} cells still have no result after merging; setting them to 0")
             merged = np.nan_to_num(merged, nan=0.0)
 
         final_paths = get_result_paths(output_dir, icon_info["name"], bg_index)
         np.save(final_paths["npy"], merged)
-        print(f"💾 已保存合并矩阵: {final_paths['npy']}")
+        print(f"💾 Saved merged matrix: {final_paths['npy']}")
 
         plt.figure(figsize=(16, 9))
         plt.imshow(merged, cmap="RdYlGn", origin="upper", vmin=0, vmax=1)
@@ -735,7 +735,7 @@ def run_one_background(
         )
         plt.savefig(final_paths["png"], dpi=150)
         plt.close()
-        print(f"🖼️ 已保存 heatmap: {final_paths['png']}")
+        print(f"🖼️ Saved heatmap: {final_paths['png']}")
 
         merged_rows_by_cell: Dict[int, Dict[str, Any]] = {}
         for rr in range(world_size):
@@ -753,7 +753,7 @@ def run_one_background(
                 cols=cols,
             )
             if not os.path.exists(shard_paths["jsonl"]):
-                print(f"⚠️ 缺少 rank jsonl 文件: {shard_paths['jsonl']}")
+                print(f"⚠️ Missing rank JSONL file: {shard_paths['jsonl']}")
                 continue
             for row in shard_rows:
                 merged_rows_by_cell[int(row["cell_idx"])] = row
@@ -761,7 +761,7 @@ def run_one_background(
         with open(final_paths["jsonl"], "w", encoding="utf-8") as fout:
             for cell_idx in sorted(merged_rows_by_cell):
                 fout.write(json.dumps(merged_rows_by_cell[cell_idx], ensure_ascii=False) + "\n")
-        print(f"📝 已保存详细结果: {final_paths['jsonl']}")
+        print(f"📝 Saved detailed results: {final_paths['jsonl']}")
 
         if missing == 0 and len(merged_rows_by_cell) >= total_cells:
             write_done_metadata(
@@ -778,10 +778,10 @@ def run_one_background(
                 png_path=final_paths["png"],
                 jsonl_path=final_paths["jsonl"],
             )
-            print(f"✅ 已写入完成标记: {final_paths['done']}")
+            print(f"✅ Wrote completion marker: {final_paths['done']}")
         elif os.path.exists(final_paths["done"]):
             os.remove(final_paths["done"])
-            print(f"⚠️ 本次结果不完整，已移除完成标记: {final_paths['done']}")
+            print(f"⚠️ Results are incomplete; removed completion marker: {final_paths['done']}")
 
     dist_barrier(dist_enabled)
 
@@ -793,7 +793,7 @@ def main() -> None:
     dist_enabled, rank, world_size, local_rank, device = dist_init()
 
     parser = argparse.ArgumentParser(description="UI-Venus-Ground-7B blind-zone probing")
-    parser.add_argument("icon_name", type=str, choices=["gemini", "circle_ok", "clock"])
+    parser.add_argument("icon_name", type=str, choices=["star", "circle_ok", "clock"])
     parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH)
     parser.add_argument("--bg_dir", type=str, default=DEFAULT_BG_DIR)
     parser.add_argument("--icon_dir", type=str, default=DEFAULT_ICON_DIR)
@@ -819,9 +819,9 @@ def main() -> None:
     icons = get_icons(args.icon_dir)
     icon_info = icons[args.icon_name]
     if not os.path.exists(icon_info["path"]):
-        raise FileNotFoundError(f"图标文件不存在: {icon_info['path']}")
+        raise FileNotFoundError(f"Icon file does not exist: {icon_info['path']}")
     if not os.path.isdir(args.bg_dir):
-        raise FileNotFoundError(f"背景目录不存在: {args.bg_dir}")
+        raise FileNotFoundError(f"Background directory does not exist: {args.bg_dir}")
 
     bg_files = sorted([
         f for f in os.listdir(args.bg_dir)
@@ -830,12 +830,12 @@ def main() -> None:
     if args.max_backgrounds and args.max_backgrounds > 0:
         bg_files = bg_files[: args.max_backgrounds]
     if not bg_files:
-        raise FileNotFoundError(f"未在 {args.bg_dir} 中找到背景图片")
+        raise FileNotFoundError(f"No background images found in {args.bg_dir}")
 
     rank0_print(
         rank,
-        f"\n📁 找到 {len(bg_files)} 张背景图片，将测试图标: "
-        f"{args.icon_name}，尺寸 {icon_info['width']}x{icon_info['height']}",
+        f"\n📁 Found {len(bg_files)} background images; testing icon: "
+        f"{args.icon_name}, size {icon_info['width']}x{icon_info['height']}",
     )
     rank0_print(rank, "=" * 60)
 
@@ -850,8 +850,8 @@ def main() -> None:
             output_dir=args.output_dir,
         ):
             final_paths = get_result_paths(args.output_dir, icon_info["name"], idx)
-            rank0_print(rank, f"♻️ 自动续跑跳过 background {idx}/{len(bg_files)}: {bg_file}")
-            rank0_print(rank, f"   已存在: {final_paths['npy']}")
+            rank0_print(rank, f"♻️ Automatic resume: skipping background {idx}/{len(bg_files)}: {bg_file}")
+            rank0_print(rank, f"   Already exists: {final_paths['npy']}")
             skipped_backgrounds += 1
         else:
             pending_backgrounds.append((idx, bg_path))
@@ -862,7 +862,7 @@ def main() -> None:
         f"pending={len(pending_backgrounds)}, total={len(bg_files)}",
     )
     if not pending_backgrounds:
-        rank0_print(rank, f"\n🎉 完成！所有请求的结果已存在于 {args.output_dir}")
+        rank0_print(rank, f"\n🎉 Complete! All requested results already exist in {args.output_dir}")
         cleanup_dist(dist_enabled)
         return
 
@@ -897,7 +897,7 @@ def main() -> None:
     finally:
         cleanup_dist(dist_enabled)
 
-    rank0_print(rank, f"\n🎉 完成！结果保存在 {args.output_dir}")
+    rank0_print(rank, f"\n🎉 Complete! Results are saved in {args.output_dir}")
 
 
 if __name__ == "__main__":

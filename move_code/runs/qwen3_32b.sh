@@ -16,7 +16,7 @@ export OUTPUT_DIR="${WORKSPACE_ROOT}/blind_zone/find_zone/32b"
 export OUTPUT_TAG="qwen32b"
 export MASTER_PORT="${MASTER_PORT:-29500}"
 
-# 只保留与 Python 默认值不同的参数。
+# Specify only arguments that differ from the Python defaults.
 export RANDOM_REL_ARGS=""
 export IN_REGION_ARGS="--max_new_tokens 32 --min_pixels 3136 --max_pixels 8847360 --center_inset_px 50 --bbox_edge_margin_px 50"
 export OUT_ARGS="--canvas_edge_margin_px 300"

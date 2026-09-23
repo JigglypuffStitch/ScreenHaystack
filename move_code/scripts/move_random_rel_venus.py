@@ -547,7 +547,7 @@ def bbox_rect_distance(
     b: Tuple[float, float, float, float],
 ) -> float:
     """
-    两个 axis-aligned bbox 的最小欧氏间距；相交/接触则为 0。
+    Return the minimum Euclidean distance between two axis-aligned bounding boxes; return 0 if they overlap or touch.
     """
     ax1, ay1, ax2, ay2 = map(float, a)
     bx1, by1, bx2, by2 = map(float, b)
@@ -565,8 +565,8 @@ def min_distance_bbox_parts_to_regions(
     dilate_y: float,
 ) -> float:
     """
-    计算 bbox parts 到所有 region（带 dilation）的最小距离。
-    越大表示离 region 越远。
+    Compute the minimum distance from the bounding-box parts to all dilated regions.
+    A larger value means the parts are farther from the regions.
     """
     if not bbox_parts:
         return 0.0
@@ -598,8 +598,8 @@ def bbox_parts_respect_min_region_gap(
     min_gap_y: float,
 ) -> bool:
     """
-    硬约束：bbox parts 与所有 region 的上下左右安全间隔至少为 min_gap_x / min_gap_y。
-    实现上等价于：bbox parts 不得与 (region + dilation + safety gap) 相交。
+    Hard constraint: bounding-box parts must maintain horizontal and vertical gaps of at least min_gap_x / min_gap_y from every region.
+    Equivalently, bounding-box parts must not overlap any region expanded by dilation and the safety gap.
     """
     eff_dx = float(dilate_x) + max(0.0, float(min_gap_x))
     eff_dy = float(dilate_y) + max(0.0, float(min_gap_y))
@@ -831,7 +831,7 @@ def visualize_prediction_pixel(
 
 
 # -------------------------
-# Shift-only transform (固定画布，WRAP-AROUND 平移；NO CROP)
+# Shift-only transform (fixed canvas, wrap-around translation, no cropping)
 # -------------------------
 def _canonical_shift_delta(d: int, size: int) -> int:
     """
@@ -931,12 +931,12 @@ def bbox_parts_intersect_any_region(
 
 def shift_image_on_canvas(img: Image.Image, dx: int, dy: int, fill=(0, 0, 0)) -> Image.Image:
     """
-    固定画布为原图尺寸 (W,H)，把原图内容整体做 WRAP-AROUND 平移：
-      - dx>0: 内容向右
-      - dy>0: 内容向下
-    不产生黑边，像拼图一样从另一侧补回来。
+    Keep the canvas at the original image size (W, H) and shift all image content with wrap-around:
+      - dx > 0: shift content to the right
+      - dy > 0: shift content downward
+    This produces no black borders; overflow wraps in from the opposite side like a tiled image.
 
-    fill 参数仅保留兼容旧调用，wrap 模式下不会用到。
+    The fill parameter is retained only for backward compatibility and is unused in wrap mode.
     """
     W, H = img.size
     dx = _canonical_shift_delta(dx, W)
@@ -946,10 +946,10 @@ def shift_image_on_canvas(img: Image.Image, dx: int, dy: int, fill=(0, 0, 0)) ->
 
 def filled_pixels_for_shift(W: int, H: int, dx: int, dy: int) -> int:
     """
-    Wrap-around shift 时没有黑边。
-    这里仍保留一个“变化预算”近似量：
+    A wrap-around shift produces no black borders.
+    Retain an approximate change budget:
       seam = |dx|*H + |dy|*W - |dx|*|dy|
-    必须基于 canonical dx/dy 计算。
+    It must be computed from canonical dx/dy values.
     """
     W = int(W)
     H = int(H)
@@ -1017,7 +1017,7 @@ def _candidate_values_for_range(lo: int, hi: int) -> List[int]:
 
 def _build_wrap_axis_candidates(size: int, prefer_positive: bool = False) -> List[int]:
     """
-    为 wrap 轴构造更丰富的候选，允许更大移动。
+    Construct a richer set of candidates for wrapped axes to allow larger shifts.
     """
     size = int(size)
     lo = -size // 2
@@ -1094,16 +1094,16 @@ def pick_best_shift_wrap_style(
     forbid_zero: bool = True,
 ) -> Optional[Dict[str, Any]]:
     """
-    搜索一个 wrap-around shift：
-      1) 必须非零位移
-      2) bbox 必须完整，不能 split
-      3) 移动后的 bbox 必须与 region 保持至少 min_region_gap_x / min_region_gap_y 的上下左右安全间隔
+    Search for a wrap-around shift that satisfies these constraints:
+      1) The displacement must be nonzero.
+      2) The bounding box must remain intact and cannot be split.
+      3) The shifted bounding box must maintain horizontal and vertical gaps of at least min_region_gap_x / min_region_gap_y from each region.
       4) seam-area <= budget_px
-      5) 移动后的完整 bbox 必须完全落在 placement canvas 内，且离四边至少 edge_margin 像素
-      6) 在满足硬约束的前提下，优先让 bbox 尽量远离 region；其次偏好更大的移动
+      5) The complete shifted bounding box must lie inside the placement canvas and stay at least edge_margin pixels from every edge.
+      6) Subject to the hard constraints, maximize distance from regions first, then prefer larger shifts.
 
-    注：当前调用中，placement_canvas_w / placement_canvas_h 传入的是原图 W / H，
-    因此这里实际上是在约束“距离原图边缘至少 edge_margin”。
+    Note: current callers pass the original image W / H as placement_canvas_w / placement_canvas_h,
+    so this effectively enforces a margin of at least edge_margin from the original image edges.
     """
     W = int(W)
     H = int(H)
@@ -1136,13 +1136,13 @@ def pick_best_shift_wrap_style(
             if not gt_parts:
                 continue
 
-            # bbox 必须完整，不能被 wrap 切开
+            # The bounding box must remain intact and cannot be split by wrapping.
             if len(gt_parts) != 1:
                 continue
 
             shifted_bbox = gt_parts[0]
 
-            # 移动后的 bbox 必须完整落在原图内，且离四边至少 edge_margin
+            # The shifted bounding box must stay fully inside the original image and at least edge_margin from every edge.
             if not bbox_fully_within_canvas(
                 shifted_bbox,
                 canvas_w=placement_canvas_w,
@@ -1151,7 +1151,7 @@ def pick_best_shift_wrap_style(
             ):
                 continue
 
-            # 硬约束：与 region 保持至少 min_region_gap_x / min_region_gap_y 的安全间隔
+            # Hard constraint: maintain horizontal and vertical safety gaps of at least min_region_gap_x / min_region_gap_y from regions.
             if not bbox_parts_respect_min_region_gap(
                 gt_parts,
                 region_boxes_proc,
@@ -1170,7 +1170,7 @@ def pick_best_shift_wrap_style(
             )
             style_pen = _style_score_penalty(style, dx, dy, W, H)
 
-            # 先最大化离 region 的距离，再偏好更大的移动；style 仅作为后续 tie-break
+            # Maximize distance from regions first, then prefer larger shifts; use style only as a later tie-breaker.
             key = (
                 -float(min_region_dist),
                 -int(filled),
@@ -1211,7 +1211,7 @@ def pick_any_nonzero_wrap_shift_style(
     used_pairs: Optional[Set[Tuple[int, int]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    给 negative sample 用：没有 gt bbox，只要求必须非零、wrap、预算内、尽量移动更多。
+    For negative samples without a ground-truth bounding box: require a nonzero wrapped shift within budget and maximize movement.
     """
     W = int(W)
     H = int(H)
@@ -1334,8 +1334,8 @@ def build_multi_run_shift_plans(
     u0: BBoxUnion,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
-    必须移动 + wrap-around + bbox完整 + 与region至少保持指定安全间隔 +
-    bbox不能超出原图且离原图边缘足够远 + 尽量远离region
+    Require movement, wrap-around, an intact bounding box, and the specified safety gap from regions.
+    The bounding box must remain within the original image, stay far enough from its edges, and be as far from regions as possible.
     """
     _ = u0
     _ = edge_margin
@@ -1772,7 +1772,7 @@ def main():
     ap.add_argument("--dilate_px_x", type=float, default=None)
     ap.add_argument("--dilate_px_y", type=float, default=None)
 
-    # 改为默认 300
+    # Changed the default to 300.
     ap.add_argument("--min_region_gap_px", type=float, default=50.0)
     ap.add_argument("--min_region_gap_px_x", type=float, default=None)
     ap.add_argument("--min_region_gap_px_y", type=float, default=None)
@@ -2160,7 +2160,7 @@ def main():
                     dilate_y=float(px_y),
                     min_region_gap_x=float(min_region_gap_x),
                     min_region_gap_y=float(min_region_gap_y),
-                    # 这里明确改为原图宽高，而不是外部 placement_canvas
+                    # Explicitly use the original image dimensions instead of the external placement canvas.
                     placement_canvas_w=int(W),
                     placement_canvas_h=int(H),
                     edge_margin=int(args.edge_margin_px),
@@ -2256,7 +2256,7 @@ def main():
                         g0 = gt_parts[0]
                         trial["bbox_transformed"] = [float(g0[0]), float(g0[1]), float(g0[2]), float(g0[3])]
                         trial["bbox_transformed_parts"] = None
-                        # 这里也改为按原图边缘检查
+                        # Check against the original image edges here as well.
                         shifted_bbox_within_placement_runtime = bbox_fully_within_canvas(
                             g0,
                             canvas_w=int(W),

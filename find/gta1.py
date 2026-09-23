@@ -30,7 +30,7 @@ from transformers import (
 from qwen_vl_utils import smart_resize
 
 
-# ========== 默认配置 ==========
+# ========== Default configuration ==========
 DEFAULT_MODEL_PATH = "HelloKKMe/GTA1-7B"
 
 DEFAULT_BG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'background')
@@ -63,12 +63,12 @@ _COORD_RE = re.compile(r"\((-?\d*\.?\d+),\s*(-?\d*\.?\d+)\)")
 # -------------------------
 def get_icons(icon_dir: str) -> Dict[str, Dict[str, Any]]:
     return {
-        "gemini": {
-            "path": os.path.join(icon_dir, "gemini_icon_40.png"),
+        "star": {
+            "path": os.path.join(icon_dir, "star_icon_40.png"),
             "width": 40,
             "height": 40,
-            "prompt": "the Gemini icon, a red diamond shape inside a square yellow border",
-            "name": "gemini",
+            "prompt": "the Star icon, a red diamond shape inside a square yellow border",
+            "name": "star",
         },
         "circle_ok": {
             "path": os.path.join(icon_dir, "circle_ok_40.png"),
@@ -89,8 +89,8 @@ def get_icons(icon_dir: str) -> Dict[str, Dict[str, Any]]:
 
 def extract_coordinates(raw_string: str) -> Optional[Tuple[float, float]]:
     """
-    优先解析 (x,y)，失败时退化为提取前两个数字。
-    GTA1 这里按 pixel coordinate 处理，不再把 <=1005 的坐标默认视为 0-1000 归一化坐标。
+    Parse (x,y) first; if that fails, fall back to extracting the first two numbers.
+    GTA1 treats these as pixel coordinates and no longer interprets values <=1005 as normalized 0-1000 coordinates.
     """
     try:
         m = _COORD_RE.search(raw_string or "")
@@ -108,8 +108,8 @@ def extract_coordinates(raw_string: str) -> Optional[Tuple[float, float]]:
 
 def make_prompt_text(processor: AutoProcessor, resized_width: int, resized_height: int, instruction: str) -> str:
     """
-    采用上面那个快脚本的写法：
-    text + image placeholder + text，然后 processor(text=[...], images=[...]) 做 batched processing。
+    Follow the approach used by the fast script above:
+    text + image placeholder + text, followed by batched processing with processor(text=[...], images=[...]).
     """
     prompt = SYSTEM_PROMPT.format(height=resized_height, width=resized_width).strip()
 
@@ -132,7 +132,7 @@ def make_prompt_text(processor: AutoProcessor, resized_width: int, resized_heigh
 
 
 # -------------------------
-# Model: 按上面那个快脚本的调用方式
+# Model: use the invocation pattern from the fast script above.
 # -------------------------
 def load_model(
     *,
@@ -144,13 +144,13 @@ def load_model(
     attn_impl: str,
 ) -> Tuple[Qwen2_5_VLForConditionalGeneration, AutoProcessor]:
     """
-    和上面快脚本保持一致：
-    - AutoConfig 检查 model_type
+    Keep the configuration consistent with the fast script above:
+    - AutoConfig checks model_type
     - torch_dtype="auto"
     - trust_remote_code=True
     - low_cpu_mem_usage=True
     - device_map={"": str(device)}
-    - processor 直接接收 min_pixels / max_pixels
+    - processor receives min_pixels / max_pixels directly
     """
     cfg = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
     mt = getattr(cfg, "model_type", None)
@@ -164,7 +164,7 @@ def load_model(
         torch_dtype="auto",
         trust_remote_code=True,
         low_cpu_mem_usage=True,
-        device_map={"": str(device)},  # 整模型放到本 rank GPU
+        device_map={"": str(device)},  # Place the entire model on this rank's GPU.
     )
     if attn_impl:
         model_kwargs["attn_implementation"] = attn_impl
@@ -200,9 +200,9 @@ def run_batch(
     scale_y: float,
 ) -> List[Dict[str, Any]]:
     """
-    batch_items 中每个 item 包含：
+    Each item in batch_items contains:
     r, c, image, bbox
-    其中 image 已经 resize 到 GTA1 实际看到的尺寸。
+    The image has already been resized to the dimensions seen by GTA1.
     """
     if not batch_items:
         return []
@@ -228,7 +228,7 @@ def run_batch(
             pad_token_id=pad_token_id,
         )
 
-    # 因为 batch 内 prompt 完全相同，所以直接用 padded prompt length 切掉输入部分。
+    # All prompts in the batch are identical, so remove the input using the padded prompt length.
     prompt_len = inputs["input_ids"].shape[1]
     trimmed = generated_ids[:, prompt_len:]
 
@@ -247,7 +247,7 @@ def run_batch(
         if coords is not None:
             raw_x, raw_y = coords
 
-            # GTA1 输出的是 resized image 坐标，映射回原始背景图坐标。
+            # GTA1 outputs resized-image coordinates; map them back to the original background coordinates.
             pred_x = raw_x * scale_x
             pred_y = raw_y * scale_y
             pred = (pred_x, pred_y)
@@ -304,14 +304,14 @@ def run_one_background(
     ROWS = H // icon_h
 
     if ROWS == 0:
-        rank0_print(rank, "⚠️ 背景高度小于图标高度，无法放置图标，跳过")
+        rank0_print(rank, "⚠️ The background is shorter than the icon; cannot place the icon, skipping")
         return
 
     grid_w = W / COLS
     grid_h = H / ROWS
 
-    # 不再读 processor.image_processor.min_pixels/max_pixels；
-    # 直接用 args.min_pixels / args.max_pixels，和上面快脚本的参数设置保持一致。
+    # Do not read processor.image_processor.min_pixels/max_pixels.
+    # Use args.min_pixels / args.max_pixels directly to match the fast script's settings.
     image_processor = processor.image_processor
     patch_size = getattr(image_processor, "patch_size", 14)
     merge_size = getattr(image_processor, "merge_size", 2)
@@ -337,20 +337,20 @@ def run_one_background(
     icon = Image.open(icon_info["path"]).convert("RGBA").resize((icon_w, icon_h))
     pad_token_id = _get_pad_token_id(processor)
 
-    rank0_print(rank, f"\n🖼️ 背景 [{bg_index}]: {os.path.basename(bg_path)} ({W}x{H})")
-    rank0_print(rank, f"📐 网格划分: {COLS} 列 x {ROWS} 行，图标尺寸 {icon_w}x{icon_h}px")
-    rank0_print(rank, f"🔁 GTA1 输入尺寸: {resized_width}x{resized_height}")
-    rank0_print(rank, f"🔁 坐标缩放比例: scale_x={scale_x:.4f}, scale_y={scale_y:.4f}")
+    rank0_print(rank, f"\n🖼️ Background [{bg_index}]: {os.path.basename(bg_path)} ({W}x{H})")
+    rank0_print(rank, f"📐 Grid: {COLS} columns x {ROWS} rows; icon size {icon_w}x{icon_h}px")
+    rank0_print(rank, f"🔁 GTA1 input size: {resized_width}x{resized_height}")
+    rank0_print(rank, f"🔁 Coordinate scale: scale_x={scale_x:.4f}, scale_y={scale_y:.4f}")
     rank0_print(rank, f"🚀 batch inference: batch_size={batch_size}, world_size={world_size}")
 
     total_cells = ROWS * COLS
     my_cell_indices = [i for i in range(total_cells) if (i % world_size) == rank]
 
-    # rank_matrix 只填本 rank 负责的 cell，其余为 NaN。
+    # Fill rank_matrix only for cells assigned to this rank; leave all others as NaN.
     rank_matrix = np.full((ROWS, COLS), np.nan, dtype=np.float32)
 
-    # 每个 rank 写自己的 jsonl shard，避免多进程同时写同一个文件造成内容交错。
-    # rank0 会在所有 rank 完成后合并为一个完整 jsonl。
+    # Each rank writes its own JSONL shard to prevent interleaved output from multiple processes.
+    # Rank 0 merges all shards into a complete JSONL file after all ranks finish.
     rank_jsonl_path = os.path.join(
         output_dir,
         f"{icon_info['name']}_gta1_outputs_{bg_index}.rank{rank}.jsonl",
@@ -445,8 +445,8 @@ def run_one_background(
         temp_img = base_bg.copy()
         temp_img.paste(icon, (px, py), icon)
 
-        # 手动 resize 到 smart_resize 后的尺寸。
-        # 这样 prompt 里的 resolution 和模型看到的图像尺寸一致。
+        # Manually resize to the dimensions returned by smart_resize.
+        # This keeps the resolution in the prompt consistent with the image dimensions seen by the model.
         resized_img = temp_img.resize((resized_width, resized_height), Image.BILINEAR)
 
         batch_items.append(
@@ -473,12 +473,12 @@ def run_one_background(
     np.save(rank_path, rank_matrix)
 
     elapsed = time.time() - start_time
-    rank0_print(rank, f"⏱️ 背景 {bg_index} rank0 shard 用时: {elapsed/60:.2f} min")
+    rank0_print(rank, f"⏱️ Background {bg_index} rank 0 shard time: {elapsed/60:.2f} min")
 
-    # 等所有 rank 写完各自的 rank_matrix
+    # Wait for all ranks to finish writing their rank_matrix files.
     dist_barrier(dist_enabled)
 
-    # rank0 合并所有 rank 的矩阵，并保存最终 npy + heatmap
+    # Rank 0 merges all rank matrices and saves the final NPY file and heatmap.
     if rank == 0:
         merged = np.full((ROWS, COLS), np.nan, dtype=np.float32)
 
@@ -488,7 +488,7 @@ def run_one_background(
                 f"{icon_info['name']}_gta1_accuracy_relative_matrix_{bg_index}.rank{rr}.npy",
             )
             if not os.path.exists(p):
-                print(f"⚠️ 缺少 rank 文件: {p}")
+                print(f"⚠️ Missing rank file: {p}")
                 continue
 
             m = np.load(p)
@@ -497,13 +497,13 @@ def run_one_background(
 
         missing = int(np.isnan(merged).sum())
         if missing > 0:
-            print(f"⚠️ 合并后仍有 {missing} 个 cell 没有结果，将其置为 0")
+            print(f"⚠️ {missing} cells still have no result after merging; setting them to 0")
             merged = np.nan_to_num(merged, nan=0.0)
 
         npy_filename = f"{icon_info['name']}_gta1_accuracy_relative_matrix_{bg_index}.npy"
         npy_path = os.path.join(output_dir, npy_filename)
         np.save(npy_path, merged)
-        print(f"💾 已保存合并矩阵: {npy_path}")
+        print(f"💾 Saved merged matrix: {npy_path}")
 
         png_filename = f"{icon_info['name']}_gta1_blind_spot_relative_{bg_index}.png"
         png_path = os.path.join(output_dir, png_filename)
@@ -524,7 +524,7 @@ def run_one_background(
         plt.savefig(png_path, dpi=150)
         plt.close()
 
-        print(f"🖼️ 已保存 heatmap: {png_path}")
+        print(f"🖼️ Saved heatmap: {png_path}")
 
         merged_jsonl_filename = f"{icon_info['name']}_gta1_outputs_{bg_index}.jsonl"
         merged_jsonl_path = os.path.join(output_dir, merged_jsonl_filename)
@@ -535,13 +535,13 @@ def run_one_background(
                     f"{icon_info['name']}_gta1_outputs_{bg_index}.rank{rr}.jsonl",
                 )
                 if not os.path.exists(shard_path):
-                    print(f"⚠️ 缺少 rank jsonl 文件: {shard_path}")
+                    print(f"⚠️ Missing rank JSONL file: {shard_path}")
                     continue
                 with open(shard_path, "r", encoding="utf-8") as fin:
                     for line in fin:
                         fout.write(line)
 
-        print(f"📝 已保存 model outputs jsonl: {merged_jsonl_path}")
+        print(f"📝 Saved model outputs JSONL: {merged_jsonl_path}")
 
     dist_barrier(dist_enabled)
 
@@ -553,7 +553,7 @@ def main() -> None:
     dist_enabled, rank, world_size, local_rank, device = dist_init()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("icon_name", type=str, choices=["gemini", "circle_ok", "clock"])
+    parser.add_argument("icon_name", type=str, choices=["star", "circle_ok", "clock"])
 
     parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH)
     parser.add_argument("--bg_dir", type=str, default=DEFAULT_BG_DIR)
@@ -583,7 +583,7 @@ def main() -> None:
     icon_info = icons[args.icon_name]
 
     if not os.path.exists(icon_info["path"]):
-        raise FileNotFoundError(f"图标文件不存在: {icon_info['path']}")
+        raise FileNotFoundError(f"Icon file does not exist: {icon_info['path']}")
 
     rank0_print(rank, f"[Rank {rank}] local_rank={local_rank}, device={device}, world_size={world_size}")
 
@@ -605,12 +605,12 @@ def main() -> None:
         bg_files = bg_files[: args.max_backgrounds]
 
     if not bg_files:
-        raise FileNotFoundError(f"未在 {args.bg_dir} 中找到背景图片")
+        raise FileNotFoundError(f"No background images found in {args.bg_dir}")
 
     rank0_print(
         rank,
-        f"\n📁 找到 {len(bg_files)} 张背景图片，将测试图标: "
-        f"{args.icon_name}，尺寸 {icon_info['width']}x{icon_info['height']}"
+        f"\n📁 Found {len(bg_files)} background images; testing icon: "
+        f"{args.icon_name}, size {icon_info['width']}x{icon_info['height']}"
     )
     rank0_print(rank, "=" * 60)
 
@@ -633,7 +633,7 @@ def main() -> None:
             max_pixels=args.max_pixels,
         )
 
-    rank0_print(rank, f"\n🎉 完成！结果保存在 {args.output_dir}")
+    rank0_print(rank, f"\n🎉 Complete! Results are saved in {args.output_dir}")
     cleanup_dist(dist_enabled)
 
 

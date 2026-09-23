@@ -31,7 +31,7 @@ from transformers import AutoModelForImageTextToText, AutoProcessor
 from qwen_vl_utils import smart_resize
 
 
-# ========== 默认配置 ==========
+# ========== Default configuration ==========
 DEFAULT_MODEL_PATH = "Qwen/Qwen3-VL-8B-Instruct"
 DEFAULT_BG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'background')
 DEFAULT_ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icons')
@@ -58,12 +58,12 @@ _COORD_RE = re.compile(r"\((-?\d*\.?\d+),\s*(-?\d*\.?\d+)\)")
 
 def get_icons(icon_dir: str) -> Dict[str, Dict[str, Any]]:
     return {
-        "gemini": {
+        "star": {
             "path": os.path.join(icon_dir, "Today.png"),
             "width": 60,
             "height": 40,
             "prompt": "the rounded button with a calendar icon and the text 'Today'",
-            "name": "gemini",
+            "name": "star",
         },
         "circle_ok": {
             "path": os.path.join(icon_dir, "API.png"),
@@ -428,7 +428,7 @@ def run_one_background(
     cols = math.ceil(width / icon_w)
     rows = height // icon_h
     if rows == 0:
-        rank0_print(rank, "⚠️ 背景高度小于图标高度，无法放置图标，跳过")
+        rank0_print(rank, "⚠️ The background is shorter than the icon; cannot place the icon, skipping")
         return
 
     grid_w = width / cols
@@ -457,10 +457,10 @@ def run_one_background(
     icon = Image.open(icon_info["path"]).convert("RGBA").resize((icon_w, icon_h))
     pad_token_id = _get_pad_token_id(processor)
 
-    rank0_print(rank, f"\n🖼️ 背景 [{bg_index}]: {os.path.basename(bg_path)} ({width}x{height})")
-    rank0_print(rank, f"📐 网格划分: {cols} 列 x {rows} 行，图标尺寸 {icon_w}x{icon_h}px")
-    rank0_print(rank, f"🔁 Qwen3-VL 输入尺寸: {resized_width}x{resized_height}")
-    rank0_print(rank, f"🔁 坐标缩放比例: scale_x={scale_x:.4f}, scale_y={scale_y:.4f}")
+    rank0_print(rank, f"\n🖼️ Background [{bg_index}]: {os.path.basename(bg_path)} ({width}x{height})")
+    rank0_print(rank, f"📐 Grid: {cols} columns x {rows} rows; icon size {icon_w}x{icon_h}px")
+    rank0_print(rank, f"🔁 Qwen3-VL input size: {resized_width}x{resized_height}")
+    rank0_print(rank, f"🔁 Coordinate scale: scale_x={scale_x:.4f}, scale_y={scale_y:.4f}")
     rank0_print(rank, f"🚀 batch inference: batch_size={batch_size}, world_size={world_size}")
 
     total_cells = rows * cols
@@ -496,9 +496,9 @@ def run_one_background(
     existing_records = valid_existing_records
 
     if existing_records:
-        print(f"[Rank {rank}] 自动续跑: 已读取 {len(existing_records)} 个已完成网格，将跳过这些格子")
+        print(f"[Rank {rank}] Automatic resume: loaded {len(existing_records)} completed grid cells; these cells will be skipped")
     if stale_records:
-        print(f"[Rank {rank}] 发现 {stale_records} 条旧记录 placement 不一致，将重新计算")
+        print(f"[Rank {rank}] Found {stale_records} stale records with mismatched placements; recomputing them")
     ensure_jsonl_append_boundary(rank_jsonl_path)
 
     start_time = time.time()
@@ -630,7 +630,7 @@ def run_one_background(
     np.save(rank_path, rank_matrix)
 
     elapsed = time.time() - start_time
-    print(f"[Rank {rank}] 背景 {bg_index} shard 用时: {elapsed/60:.2f} min，本次新增 {new_cells_done} 条")
+    print(f"[Rank {rank}] Background {bg_index} shard time: {elapsed/60:.2f} min; added {new_cells_done} records")
 
     dist_barrier(dist_enabled)
 
@@ -642,7 +642,7 @@ def run_one_background(
                 f"{icon_info['name']}_accuracy_relative_matrix_{bg_index}.rank{rr}.npy",
             )
             if not os.path.exists(p):
-                print(f"⚠️ 缺少 rank 文件: {p}")
+                print(f"⚠️ Missing rank file: {p}")
                 continue
             m = np.load(p)
             mask = ~np.isnan(m)
@@ -650,13 +650,13 @@ def run_one_background(
 
         missing = int(np.isnan(merged).sum())
         if missing > 0:
-            print(f"⚠️ 合并后仍有 {missing} 个 cell 没有结果，将其置为 0")
+            print(f"⚠️ {missing} cells still have no result after merging; setting them to 0")
             merged = np.nan_to_num(merged, nan=0.0)
 
         npy_filename = f"{icon_info['name']}_accuracy_relative_matrix_{bg_index}.npy"
         npy_path = os.path.join(output_dir, npy_filename)
         np.save(npy_path, merged)
-        print(f"💾 已保存合并矩阵: {npy_path}")
+        print(f"💾 Saved merged matrix: {npy_path}")
 
         png_filename = f"{icon_info['name']}_blind_spot_relative_{bg_index}.png"
         png_path = os.path.join(output_dir, png_filename)
@@ -669,7 +669,7 @@ def run_one_background(
         )
         plt.savefig(png_path, dpi=150)
         plt.close()
-        print(f"🖼️ 已保存 heatmap: {png_path}")
+        print(f"🖼️ Saved heatmap: {png_path}")
 
         merged_jsonl_filename = f"{icon_info['name']}_qwen_outputs_{bg_index}.jsonl"
         merged_jsonl_path = os.path.join(output_dir, merged_jsonl_filename)
@@ -706,7 +706,7 @@ def run_one_background(
                 if not record_matches_placement(record, px, py, x_min, x_max, y_min, y_max, icon_blend_alpha):
                     continue
                 fout.write(json.dumps(record, ensure_ascii=False) + "\n")
-        print(f"📝 已保存 model outputs jsonl: {merged_jsonl_path}")
+        print(f"📝 Saved model outputs JSONL: {merged_jsonl_path}")
 
     dist_barrier(dist_enabled)
 
@@ -718,7 +718,7 @@ def main() -> None:
     dist_enabled, rank, world_size, local_rank, device = dist_init()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("icon_name", type=str, choices=["gemini", "circle_ok", "clock"])
+    parser.add_argument("icon_name", type=str, choices=["star", "circle_ok", "clock"])
     parser.add_argument("--model_path", type=str, default=DEFAULT_MODEL_PATH)
     parser.add_argument("--bg_dir", type=str, default=DEFAULT_BG_DIR)
     parser.add_argument("--icon_dir", type=str, default=DEFAULT_ICON_DIR)
@@ -747,9 +747,9 @@ def main() -> None:
     icons = get_icons(args.icon_dir)
     icon_info = icons[args.icon_name]
     if not os.path.exists(icon_info["path"]):
-        raise FileNotFoundError(f"图标文件不存在: {icon_info['path']}")
+        raise FileNotFoundError(f"Icon file does not exist: {icon_info['path']}")
     if not os.path.isdir(args.bg_dir):
-        raise FileNotFoundError(f"背景目录不存在: {args.bg_dir}")
+        raise FileNotFoundError(f"Background directory does not exist: {args.bg_dir}")
 
     rank0_print(rank, f"[Rank {rank}] local_rank={local_rank}, device={device}, world_size={world_size}")
 
@@ -760,13 +760,13 @@ def main() -> None:
     if args.max_backgrounds and args.max_backgrounds > 0:
         bg_files = bg_files[: args.max_backgrounds]
     if not bg_files:
-        raise FileNotFoundError(f"未在 {args.bg_dir} 中找到背景图片")
+        raise FileNotFoundError(f"No background images found in {args.bg_dir}")
 
     rank0_print(
         rank,
-        f"\n📁 找到 {len(bg_files)} 张背景图片，将测试图标: "
-        f"{args.icon_name}，尺寸 {icon_info['width']}x{icon_info['height']}，"
-        f"融合 alpha={args.icon_blend_alpha:.2f}",
+        f"\n📁 Found {len(bg_files)} background images; testing icon: "
+        f"{args.icon_name}, size {icon_info['width']}x{icon_info['height']}, "
+        f"blend alpha={args.icon_blend_alpha:.2f}",
     )
     rank0_print(rank, "=" * 60)
 
@@ -807,12 +807,12 @@ def main() -> None:
     total_cells = sum(global_total_by_bg)
     rank0_print(
         rank,
-        f"🔎 自动续跑预检查: {len(bg_jobs) - len(pending_bg_jobs)}/{len(bg_jobs)} 个背景已完整，"
-        f"剩余 {total_missing}/{total_cells} 个待补格子/收尾任务",
+        f"🔎 Automatic-resume precheck: {len(bg_jobs) - len(pending_bg_jobs)}/{len(bg_jobs)} backgrounds are complete; "
+        f"{total_missing}/{total_cells} cells or finalization tasks remain",
     )
 
     if not pending_bg_jobs:
-        rank0_print(rank, f"✅ 所有目标背景已经完成，跳过模型加载。结果保存在 {args.output_dir}")
+        rank0_print(rank, f"✅ All target backgrounds are complete; skipping model loading. Results are saved in {args.output_dir}")
         cleanup_dist(dist_enabled)
         return
 
@@ -848,7 +848,7 @@ def main() -> None:
     finally:
         cleanup_dist(dist_enabled)
 
-    rank0_print(rank, f"\n🎉 完成！结果保存在 {args.output_dir}")
+    rank0_print(rank, f"\n🎉 Complete! Results are saved in {args.output_dir}")
 
 
 if __name__ == "__main__":

@@ -6,16 +6,16 @@ SHARED_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<'EOF'
-用法: bash run.sh <strategy> [额外 Python 参数]
+Usage: bash run.sh <strategy> [additional Python arguments]
 
 strategy:
-  random_rel  将非盲区样本随机移入盲区
-  in_region   将非盲区样本移入指定区域
-  out         将盲区样本移出指定区域
-  random_in   在指定区域内随机移动盲区样本
-  all         依次运行以上四种策略
+  random_rel  Randomly move non-blind-zone samples into blind zones
+  in_region   Move non-blind-zone samples into a specified region
+  out         Move blind-zone samples out of a specified region
+  random_in   Randomly move blind-zone samples within a specified region
+  all         Run all four strategies in sequence
 
-示例:
+Examples:
   bash run.sh random_rel --max_samples 10
   CUDA_VISIBLE_DEVICES=0,1 NPROC_PER_NODE=2 bash run.sh all
 EOF
@@ -30,7 +30,7 @@ shift
 
 for required_name in MODEL_PATH MODEL_ADAPTER COORD_OUTPUT_MODE NOT_IN_SUBSET WORST_SUBSET REGION_BBOX OUTPUT_DIR OUTPUT_TAG; do
   if [[ -z "${!required_name:-}" ]]; then
-    printf '缺少模型配置变量: %s\n' "${required_name}" >&2
+    printf 'Missing model configuration variable: %s\n' "${required_name}" >&2
     exit 2
   fi
 done
@@ -43,14 +43,14 @@ case "${MODEL_ADAPTER}" in
     SCRIPT_SUFFIX="_venus"
     ;;
   *)
-    printf '不支持的 MODEL_ADAPTER: %s\n' "${MODEL_ADAPTER}" >&2
+    printf 'Unsupported MODEL_ADAPTER: %s\n' "${MODEL_ADAPTER}" >&2
     exit 2
     ;;
 esac
 
 for input_path in "${NOT_IN_SUBSET}" "${WORST_SUBSET}" "${REGION_BBOX}"; do
   if [[ ! -f "${input_path}" ]]; then
-    printf '找不到输入文件: %s\n' "${input_path}" >&2
+    printf 'Input file not found: %s\n' "${input_path}" >&2
     exit 2
   fi
 done
@@ -93,7 +93,7 @@ run_one() {
       strategy_args_name="RANDOM_IN_ARGS"
       ;;
     *)
-      printf '未知策略: %s\n' "${strategy_name}" >&2
+      printf 'Unknown strategy: %s\n' "${strategy_name}" >&2
       usage >&2
       exit 2
       ;;
@@ -104,7 +104,7 @@ run_one() {
     read -r -a strategy_args <<< "${strategy_args_raw}"
   fi
 
-  printf '模型: %s\n策略: %s\n输出: %s\n' "${MODEL_PATH}" "${strategy_name}" "${output_path}"
+  printf 'Model: %s\nStrategy: %s\nOutput: %s\n' "${MODEL_PATH}" "${strategy_name}" "${output_path}"
   CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}" \
     torchrun \
       --nproc_per_node="${NPROC_PER_NODE:-1}" \
@@ -130,7 +130,7 @@ case "${STRATEGY}" in
     run_one "${STRATEGY}" "$@"
     ;;
   *)
-    printf '未知策略: %s\n' "${STRATEGY}" >&2
+    printf 'Unknown strategy: %s\n' "${STRATEGY}" >&2
     usage >&2
     exit 2
     ;;

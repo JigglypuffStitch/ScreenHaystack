@@ -16,7 +16,7 @@ export OUTPUT_DIR="${WORKSPACE_ROOT}/blind_zone/find_zone/uitars"
 export OUTPUT_TAG="uitars"
 export MASTER_PORT="${MASTER_PORT:-29528}"
 
-# 只保留与 Python 默认值不同的参数。
+# Specify only arguments that differ from the Python defaults.
 export RANDOM_REL_ARGS=""
 export IN_REGION_ARGS="--batch_size 2 --center_inset_px 50 --bbox_edge_margin_px 50"
 export OUT_ARGS="--canvas_edge_margin_px 300"

@@ -621,7 +621,7 @@ def pad_to_aspect_limit(
 
 
 # -------------------------
-# Region loading (兼容三种格式)
+# Region loading (supports three formats)
 # 1) {"bbox":[x1,y1,x2,y2]} abs pixels
 # 2) {"bounds":{"x0":..,"x1":..,"y0":..,"y1":..}} relative
 # 3) {"bounds":{"x0":..,"x1":..,"y0":..,"y1":..}} abs pixels
@@ -682,8 +682,8 @@ def load_region_specs_jsonl_flexible(path: str) -> List[RegionSpec]:
 
 def region_specs_to_abs_xyxy(specs: List[RegionSpec], W: int, H: int) -> List[Tuple[float, float, float, float]]:
     """
-    映射到“原图 (W,H)”绝对像素坐标。
-    这里是 shift-only 固定画布，因此 region 坐标系始终是原图坐标系，不随内容移动。
+    Map regions to absolute pixel coordinates in the original image (W, H).
+    This uses a fixed canvas with shift-only transforms, so the region coordinate system always matches the original image and does not move with its content.
     """
     out: List[Tuple[float, float, float, float]] = []
     for s in specs:
@@ -706,9 +706,9 @@ def region_specs_to_abs_xyxy(specs: List[RegionSpec], W: int, H: int) -> List[Tu
 # -----------------------------
 class BBoxUnion:
     """
-    仅对每个 raw region bbox 做 shift 预处理（shift 默认 0）。
-    相邻 region 的 connected-component merge 会在 make_region_components() 中完成，
-    这样 center_inset_px / bbox_edge_margin_px 可以基于 merged component union 判断。
+    Apply only shift preprocessing to each raw region bounding box (the default shift is 0).
+    Adjacent regions are merged into connected components in make_region_components(),
+    allowing center_inset_px / bbox_edge_margin_px checks to use the merged component union.
     """
 
     def __init__(
@@ -1281,7 +1281,7 @@ def visualize_prediction_pixel(
 
 
 # -------------------------
-# Shift-only transform (固定画布，移动图片：WRAP-AROUND 拼图式填充)
+# Shift-only transform (fixed canvas with tiled wrap-around image movement)
 # -------------------------
 def _canonical_shift_delta(d: int, size: int) -> int:
     """
@@ -1300,12 +1300,12 @@ def _canonical_shift_delta(d: int, size: int) -> int:
 
 def shift_image_on_canvas(img: Image.Image, dx: int, dy: int, fill=(0, 0, 0)) -> Image.Image:
     """
-    固定画布为原图尺寸 (W,H)，把原图内容整体“环绕平移”(dx,dy)：
-      - dx>0: 内容向右（左侧溢出的部分从右侧补回来）
-      - dy>0: 内容向下（上侧溢出的部分从下侧补回来）
-    不再产生黑边/空白，像拼图一样无缝拼接。
+    Keep the canvas at the original image size (W, H) and shift all image content by (dx, dy) with wrap-around:
+      - dx > 0: shift content right; overflow from the left reappears on the right
+      - dy > 0: shift content down; overflow from the top reappears at the bottom
+    This produces a seamless tiled result without black borders or empty areas.
 
-    fill 参数保留为兼容旧调用（wrap 模式下不会用到）。
+    The fill parameter is retained for backward compatibility and is unused in wrap mode.
     """
     W, H = img.size
     dx = _canonical_shift_delta(dx, W)
@@ -1315,12 +1315,12 @@ def shift_image_on_canvas(img: Image.Image, dx: int, dy: int, fill=(0, 0, 0)) ->
 
 def filled_pixels_for_shift(W: int, H: int, dx: int, dy: int) -> int:
     """
-    Wrap-around shift 时没有黑色填充像素。
-    但我们仍需要一个“变化预算”来限制 shift 幅度。
+    A wrap-around shift has no black fill pixels,
+    but a change budget is still needed to limit the shift magnitude.
 
-    这里沿用原来的面积公式，把它解释为：
-      环绕拼接产生的“边界接缝条带面积”
-    且必须使用 canonical dx/dy（因为 dx=W-1 等价于 -1）。
+    Reuse the original area formula and interpret it as
+    the area of boundary seam strips produced by wrap-around tiling.
+    Canonical dx/dy values must be used because dx=W-1 is equivalent to -1.
     """
     W = int(W)
     H = int(H)
@@ -1520,7 +1520,7 @@ def _nearest_to_zero_in_range(lo: int, hi: int, *, forbid_zero: bool) -> Optiona
 
 def _candidate_values_for_range(lo: int, hi: int) -> List[int]:
     """
-    给一个整数区间，构造少量代表性候选（用于小规模枚举），避免全枚举。
+    Build a small representative candidate set for an integer interval to avoid exhaustive enumeration.
     """
     if hi < lo:
         return []
@@ -1699,7 +1699,7 @@ def reduce_enter_shift_to_fraction_but_keep_outside(
     style: str,
 ) -> Dict[str, Any]:
     """
-    旧逻辑保留但不再使用：
+    Legacy logic retained but no longer used:
     Start from (dx_full,dy_full) that would ENTER region.
     Apply only a fraction (default 1/3, trunc toward 0), and if it still enters,
     reduce further (1/4,1/5,...) until OUTSIDE.
@@ -3254,15 +3254,15 @@ def main():
         List[RegionComponent],
     ]:
         """
-        返回：
-          - u0: region boxes（proc）用于判定/搜索
-          - region_bboxes_abs_orig: 原始 region boxes（用于 region_orig 可视化）
-          - region_boxes_proc: raw region boxes（用于 model-input 可视化）
-          - region_components: 已合并好的 connected components（用于 center_inset / bbox_edge_margin 判断）
+        Return:
+          - u0: processed region boxes used for validation and search
+          - region_bboxes_abs_orig: original region boxes used for region_orig visualization
+          - region_boxes_proc: raw region boxes used for model-input visualization
+          - region_components: merged connected components used for center_inset / bbox_edge_margin checks
 
-        重要：region component merge 只依赖 region 文件、W/H 和 merge 参数，
-        所以这里会先查内存 cache，再查磁盘 cache。第一次合并后会保存到
-        --merged_region_cache_path，后续 sample / 后续重新运行都直接复用。
+        Important: region-component merging depends only on the region file, W/H, and merge parameters.
+        Check the in-memory cache first, then the disk cache. After the first merge, save the result to
+        --merged_region_cache_path so later samples and subsequent runs can reuse it directly.
         """
         disk_key = build_region_component_cache_key(
             region_bbox_path=args.region_bbox_path,

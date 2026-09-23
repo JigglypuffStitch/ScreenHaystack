@@ -492,7 +492,7 @@ def bbox_rect_distance(
     b: Tuple[float, float, float, float],
 ) -> float:
     """
-    两个 axis-aligned bbox 的最小欧氏间距；相交/接触则为 0。
+    Return the minimum Euclidean distance between two axis-aligned bounding boxes; return 0 if they overlap or touch.
     """
     ax1, ay1, ax2, ay2 = map(float, a)
     bx1, by1, bx2, by2 = map(float, b)
@@ -510,8 +510,8 @@ def min_distance_bbox_parts_to_regions(
     dilate_y: float,
 ) -> float:
     """
-    计算 bbox parts 到所有 region（带 dilation）的最小距离。
-    越大表示离 region 越远。
+    Compute the minimum distance from the bounding-box parts to all dilated regions.
+    A larger value means the parts are farther from the regions.
     """
     if not bbox_parts:
         return 0.0
@@ -757,7 +757,7 @@ def visualize_prediction_pixel(
 
 
 # -------------------------
-# Shift-only transform (固定画布，WRAP-AROUND 平移；NO CROP)
+# Shift-only transform (fixed canvas, wrap-around translation, no cropping)
 # -------------------------
 def _canonical_shift_delta(d: int, size: int) -> int:
     """
@@ -857,12 +857,12 @@ def bbox_parts_intersect_any_region(
 
 def shift_image_on_canvas(img: Image.Image, dx: int, dy: int, fill=(0, 0, 0)) -> Image.Image:
     """
-    固定画布为原图尺寸 (W,H)，把原图内容整体做 WRAP-AROUND 平移：
-      - dx>0: 内容向右
-      - dy>0: 内容向下
-    不产生黑边，像拼图一样从另一侧补回来。
+    Keep the canvas at the original image size (W, H) and shift all image content with wrap-around:
+      - dx > 0: shift content to the right
+      - dy > 0: shift content downward
+    This produces no black borders; overflow wraps in from the opposite side like a tiled image.
 
-    fill 参数仅保留兼容旧调用，wrap 模式下不会用到。
+    The fill parameter is retained only for backward compatibility and is unused in wrap mode.
     """
     W, H = img.size
     dx = _canonical_shift_delta(dx, W)
@@ -872,10 +872,10 @@ def shift_image_on_canvas(img: Image.Image, dx: int, dy: int, fill=(0, 0, 0)) ->
 
 def filled_pixels_for_shift(W: int, H: int, dx: int, dy: int) -> int:
     """
-    Wrap-around shift 时没有黑边。
-    这里仍保留一个“变化预算”近似量：
+    A wrap-around shift produces no black borders.
+    Retain an approximate change budget:
       seam = |dx|*H + |dy|*W - |dx|*|dy|
-    必须基于 canonical dx/dy 计算。
+    It must be computed from canonical dx/dy values.
     """
     W = int(W)
     H = int(H)
@@ -943,7 +943,7 @@ def _candidate_values_for_range(lo: int, hi: int) -> List[int]:
 
 def _build_wrap_axis_candidates(size: int, prefer_positive: bool = False) -> List[int]:
     """
-    为 wrap 轴构造更丰富的候选，允许更大移动。
+    Construct a richer set of candidates for wrapped axes to allow larger shifts.
     """
     size = int(size)
     lo = -size // 2
@@ -1138,7 +1138,7 @@ def pick_any_nonzero_wrap_shift_style(
     used_pairs: Optional[Set[Tuple[int, int]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    给 negative sample 用：没有 gt bbox，只要求必须非零、wrap、预算内、尽量移动更多。
+    For negative samples without a ground-truth bounding box: require a nonzero wrapped shift within budget and maximize movement.
     """
     W = int(W)
     H = int(H)
