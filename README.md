@@ -81,19 +81,18 @@ Pass the background and icon directories explicitly with `--bg_dir` and `--icon_
 
 | Evaluator | `star` | `circle_ok` | `clock` |
 | --- | --- | --- | --- |
-| Qwen3-VL | `Today.png` | `API.png` | `clock_text_50x35.png` |
+| Qwen3-VL | `star_icon_40.png` | `circle_ok_40.png` | `clock_text_60x40.png` |
 | GTA1 | `star_icon_40.png` | `circle_ok_40.png` | `clock_text_60x40.png` |
-| UI-TARS | `star_icon_40.png` | `circle_ok_40.png` | `clock_text_40x60.png` |
+| UI-TARS | `star_icon_40.png` | `circle_ok_40.png` | `clock_text_60x40.png` |
 | UI-Venus | `star_icon_40.png` | `circle_ok_40.png` | `clock_text_60x40.png` |
 
-Run the bundled generator to create the GTA1/UI-Venus 40-pixel probe assets under `find/icons/`:
+The probe-icon generator is [`find/icon.py`](find/icon.py). Run it from the repository root to create `star_icon_40.png`, `circle_ok_40.png`, and `clock_text_60x40.png` under `find/icons/`:
 
 ```bash
-cd find
-python icon.py
+python find/icon.py
 ```
 
-Additional Qwen3-VL and UI-TARS asset sizes shown in the table must also be present when those evaluators are used.
+The additional UI-TARS clock asset shown in the table must also be present when using UI-TARS.
 
 ### Controlled relocation
 

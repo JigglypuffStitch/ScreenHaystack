@@ -59,23 +59,23 @@ _COORD_RE = re.compile(r"\((-?\d*\.?\d+),\s*(-?\d*\.?\d+)\)")
 def get_icons(icon_dir: str) -> Dict[str, Dict[str, Any]]:
     return {
         "star": {
-            "path": os.path.join(icon_dir, "Today.png"),
-            "width": 60,
+            "path": os.path.join(icon_dir, "star_icon_40.png"),
+            "width": 40,
             "height": 40,
-            "prompt": "the rounded button with a calendar icon and the text 'Today'",
+            "prompt": "a red five-pointed star shape",
             "name": "star",
         },
         "circle_ok": {
-            "path": os.path.join(icon_dir, "API.png"),
-            "width": 60,
+            "path": os.path.join(icon_dir, "circle_ok_40.png"),
+            "width": 40,
             "height": 40,
-            "prompt": "the rounded button with a funnel icon and the text 'Filter'",
+            "prompt": "the OK icon, a red circle with white text 'OK'",
             "name": "circle_ok",
         },
         "clock": {
-            "path": os.path.join(icon_dir, "clock_text_50x35.png"),
-            "width": 50,
-            "height": 35,
+            "path": os.path.join(icon_dir, "clock_text_60x40.png"),
+            "width": 60,
+            "height": 40,
             "prompt": "the clock icon, a white circle with black hour hand pointing to 3 o'clock and minute hand pointing to 12 o'clock, with text 'clock' on the right",
             "name": "clock",
         },
