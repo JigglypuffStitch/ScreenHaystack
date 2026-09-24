@@ -6,10 +6,11 @@ This repository contains the code for the blind-zone discovery and controlled-re
 
 ## Scope
 
-This code snapshot contains two parts:
+This code snapshot contains three parts:
 
 1. **Spatial probing and blind-zone discovery** (`find/`): place controlled targets across GUI backgrounds, run a grounding model, and save per-location predictions, accuracy matrices, and heatmaps.
 2. **Controlled spatial relocation** (`move_code/`): apply wrap-around shifts to ScreenSpot-Pro examples and measure the effect of moving targets across or within blind-zone boundaries.
+3. **Direct ScreenSpot-Pro evaluation** (`run_screenspot_pro.py` and `sspro_venus.py`): run a model once on each original screenshot, without relocation.
 
 The repository supports the following models:
 
@@ -30,6 +31,8 @@ move_code_and_find/
 ├── LICENSE
 ├── README.md
 ├── requirements.txt
+├── run_screenspot_pro.py       # Qwen2.5-VL and Qwen3-VL ScreenSpot-Pro baseline
+├── sspro_venus.py              # UI-Venus ScreenSpot-Pro baseline
 ├── find/
 │   ├── run.py                  # Unified probing launcher
 │   ├── run_vllm_offline.sh     # Shell wrapper; uses PyTorch/torchrun
@@ -185,6 +188,87 @@ CUDA_VISIBLE_DEVICES=0,1 NPROC_PER_NODE=2 MASTER_PORT=29521 \
 ```
 
 Additional arguments placed after the strategy are forwarded to the Python evaluator and override the model preset. Relocation outputs include per-run predictions, transformed annotations, correctness labels, and summary JSON files.
+
+## 3. Run ScreenSpot-Pro baselines
+
+Run these commands from the repository root. Set the paths to the ScreenSpot-Pro `annotations/` and `images/` directories before starting:
+
+```bash
+export SSPRO_ANNOTATIONS=/path/to/screenspot-pro/annotations
+export SSPRO_IMAGES=/path/to/screenspot-pro/images
+```
+
+### Qwen3-VL, UI-TARS, and GTA1
+
+`run_screenspot_pro.py` detects the architecture from the checkpoint. The Qwen3-VL models below use relative coordinates; UI-TARS (Qwen2.5-VL architecture) and GTA1 use absolute pixel coordinates. Each command runs a ten-sample smoke test and writes to a separate output file.
+
+Qwen3-VL 8B, relative coordinates on a 0–1000 scale:
+
+```bash
+python run_screenspot_pro.py \
+  --model_path Qwen/Qwen3-VL-8B-Instruct \
+  --annotation_dir "$SSPRO_ANNOTATIONS" \
+  --image_dir "$SSPRO_IMAGES" \
+  --coordinate_mode relative \
+  --output_path results/screenspot_pro/qwen3_vl_8b_relative.jsonl \
+  --max_samples 10
+```
+
+Qwen3-VL 32B, relative coordinates on a 0–1000 scale (requires enough memory on one device):
+
+```bash
+python run_screenspot_pro.py \
+  --model_path Qwen/Qwen3-VL-32B-Instruct \
+  --annotation_dir "$SSPRO_ANNOTATIONS" \
+  --image_dir "$SSPRO_IMAGES" \
+  --coordinate_mode relative \
+  --output_path results/screenspot_pro/qwen3_vl_32b_relative.jsonl \
+  --max_samples 10
+```
+
+UI-TARS 1.5 7B, absolute pixel coordinates:
+
+```bash
+python run_screenspot_pro.py \
+  --model_path ByteDance-Seed/UI-TARS-1.5-7B \
+  --annotation_dir "$SSPRO_ANNOTATIONS" \
+  --image_dir "$SSPRO_IMAGES" \
+  --coordinate_mode absolute \
+  --output_path results/screenspot_pro/ui_tars_1_5_7b_absolute.jsonl \
+  --max_samples 10
+```
+
+GTA1 7B, absolute pixel coordinates:
+
+```bash
+python run_screenspot_pro.py \
+  --model_path HelloKKMe/GTA1-7B \
+  --annotation_dir "$SSPRO_ANNOTATIONS" \
+  --image_dir "$SSPRO_IMAGES" \
+  --coordinate_mode absolute \
+  --output_path results/screenspot_pro/gta1_7b_absolute.jsonl \
+  --max_samples 10
+```
+
+`absolute` interprets `(x,y)` as image pixels. `relative` interprets `(x,y)` on a 0–1000 scale and converts it back to pixels for scoring. Both modes use the same original prompt.
+
+### UI-Venus
+
+UI-Venus uses its own bounding-box prompt and evaluator:
+
+```bash
+python sspro_venus.py \
+  --model_name_or_path inclusionAI/UI-Venus-Ground-7B \
+  --screenspot_test "$SSPRO_ANNOTATIONS" \
+  --screenspot_imgs "$SSPRO_IMAGES" \
+  --task all \
+  --log_path results/screenspot_pro/ui_venus_7b.jsonl \
+  --max_samples 10
+```
+
+Remove `--max_samples 10` from any command for a full run. Both scripts evaluate every annotation once, regardless of any `gt_type` field. Samples without a usable bounding box still receive a prediction but are excluded from accuracy. Each script writes predictions to JSONL and metrics to `<output>.summary.json`.
+
+Use a new output path for each Qwen run because `run_screenspot_pro.py` overwrites its output. For UI-Venus, `--resume` continues a run with matching settings, while `--overwrite` replaces an existing log. A ten-sample UI-Venus log cannot be resumed as a full run; use a separate output path for the full evaluation.
 
 ## Output interpretation
 
